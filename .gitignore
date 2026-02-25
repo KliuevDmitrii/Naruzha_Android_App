@@ -1,27 +1,38 @@
-# Python
+# ---- Python bytecode ----
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtualenv
+# ---- Virtualenv ----
 venv/
-venv
 .venv/
 env/
 
-# Pytest
+# ---- Pytest ----
 .pytest_cache/
 
-# VS Code
+# ---- IDEs ----
 .vscode/
-
-# PyCharm/IDEA
 .idea/
 
-# Allure
+# ---- Allure ----
 allure-results/
 allure-report/
 
-# OS
+# ---- OS / Windows ----
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ---- Logs ----
+*.log
+
+# ---- Local configs / secrets ----
+.env
+config/*.local.ini
+config/*.secret.ini
+config/*.local.json
+config/*.secret.json
+testdata/*.local.json
+testdata/*.secret.json
