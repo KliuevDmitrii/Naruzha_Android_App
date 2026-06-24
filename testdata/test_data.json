@@ -1,0 +1,10 @@
+{
+  "test_account": {
+    "email": "",
+    "otp": ""
+  },
+  "runtime": {
+    "public_request_id": "",
+    "quick_login_code": ""
+  }
+}
