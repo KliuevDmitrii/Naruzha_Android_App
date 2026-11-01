@@ -1,16 +1,13 @@
 import json
 import allure
 
+
 def assert_ok_json(
     r,
     expected_keys: list[str] | None = None,
     exact_keys: list[str] | None = None,
 ):
-    with allure.step("Attach raw response"):
-        allure.attach(r.url, name="URL", attachment_type=allure.attachment_type.TEXT)
-        allure.attach(str(r.status_code), name="Status Code", attachment_type=allure.attachment_type.TEXT)
-        allure.attach(r.text, name="Response Body", attachment_type=allure.attachment_type.TEXT)
-
+    # запрос/ответ уже приложены в Allure клиентом (NaruzhuApi._wrap)
     with allure.step("Assert status_code == 200"):
         assert r.status_code == 200, f"\nURL: {r.url}\nBODY:\n{r.text}"
 

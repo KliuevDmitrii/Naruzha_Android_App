@@ -34,6 +34,12 @@ class ConfigProvider:
             raise ValueError(f"Missing required config: {key}")
         return value
 
+    def get_bool(self, key: str, default: bool = False) -> bool:
+        value = self.get(key)
+        if value is None or value.strip() == "":
+            return default
+        return value.strip().lower() in ("1", "true", "yes", "on")
+
     @property
     def env(self) -> str:
         return self.get("ENV", "test").lower()
@@ -55,6 +61,7 @@ class ConfigProvider:
             "user_agent": self.get_required("USER_AGENT"),
             "supported_awg_version": self.get_required("SUPPORTED_AWG_VERSION"),
             "device_id": self.get_required("DEVICE_ID"),
+            "timeout": float(self.get("API_TIMEOUT", "30")),
         }
 
     @property
@@ -65,6 +72,18 @@ class ConfigProvider:
             "udid": self.get_required("UDID"),
             "app_package": self.get_required("APP_PACKAGE"),
             "app_activity": self.get_required("APP_ACTIVITY"),
+            "no_reset": self.get_bool("APPIUM_NO_RESET", True),
+            "implicit_wait": float(self.get("APPIUM_IMPLICIT_WAIT", "0")),
+            "explicit_wait": float(self.get("APPIUM_EXPLICIT_WAIT", "15")),
+        }
+
+    @property
+    def web(self) -> dict:
+        return {
+            "base_url": self.get_required("WEB_BASE_URL").rstrip("/"),
+            "browser": self.get("WEB_BROWSER", "chrome").lower(),
+            "headless": self.get_bool("WEB_HEADLESS", False),
+            "explicit_wait": float(self.get("WEB_EXPLICIT_WAIT", "10")),
         }
 
     @property

@@ -1,6 +1,5 @@
 import pytest
 import allure
-import json
 
 from tests.helpers.api_asserts import assert_ok_json
 

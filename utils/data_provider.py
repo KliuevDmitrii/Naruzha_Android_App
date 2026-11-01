@@ -9,12 +9,14 @@ class DataProvider:
     """
     Хранит тест-данные из testdata/test_data.json.
     - Ленивая загрузка
-    - Можно сохранять runtime-поля обратно в файл (по желанию)
+    - Поверх накладывается testdata/test_data.local.json (не в git), если он есть
+    - save() пишет только в .local.json, чтобы runtime-данные не попадали в git
     """
 
     def __init__(self, project_root: Optional[Path] = None, filename: str = "test_data.json") -> None:
         self._root = project_root or Path(__file__).resolve().parents[1]
         self._path = self._root / "testdata" / filename
+        self._local_path = self._path.with_name(f"{self._path.stem}.local{self._path.suffix}")
         self._data: Optional[Dict[str, Any]] = None
 
     def _load(self) -> None:
@@ -23,6 +25,8 @@ class DataProvider:
         if not self._path.exists():
             raise FileNotFoundError(f"Test data file not found: {self._path}")
         self._data = json.loads(self._path.read_text(encoding="utf-8"))
+        if self._local_path.exists():
+            _deep_merge(self._data, json.loads(self._local_path.read_text(encoding="utf-8")))
 
     @property
     def data(self) -> Dict[str, Any]:
@@ -57,7 +61,14 @@ class DataProvider:
     def save(self) -> None:
         self._load()
         assert self._data is not None
-        self._path.write_text(
+        self._local_path.write_text(
             json.dumps(self._data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> None:
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value

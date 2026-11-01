@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import requests
 
+from utils.attachments import attach_text
 from utils.config_provider import ConfigProvider
 from app.api.endpoints import Endpoints
 
@@ -12,7 +13,7 @@ from app.api.endpoints import Endpoints
 @dataclass(frozen=True)
 class ApiResponse:
     status_code: int
-    json: Optional[Dict[str, Any]]
+    json: Optional[Union[Dict[str, Any], list]]
     text: str
     headers: Dict[str, str]
     url: str
@@ -34,31 +35,40 @@ class NaruzhuApi:
     def _url(self, path: str) -> str:
         return f"{self.api['base_url']}{path}"
 
-    def _attach_allure(self, name: str, value: str) -> None:
-        try:
-            import allure
-            allure.attach(value, name=name, attachment_type=allure.attachment_type.TEXT)
-        except Exception:
-            pass
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json: Optional[Dict[str, Any]] = None,
+    ) -> ApiResponse:
+        r = self.session.request(
+            method,
+            self._url(path),
+            headers=self._headers(),
+            params=params,
+            json=json,
+            timeout=self.api["timeout"],
+        )
+        return self._wrap(r)
 
     def _wrap(self, r: requests.Response) -> ApiResponse:
         try:
             payload = r.json()
-        except Exception:
+        except ValueError:
             payload = None
 
-        self._attach_allure("Request URL", r.request.url or "")
-        self._attach_allure("Request Method", r.request.method or "")
-        self._attach_allure("Request Headers", str(dict(r.request.headers)))
+        attach_text("Request", f"{r.request.method} {r.request.url}\n\n{dict(r.request.headers)}")
         if r.request.body is not None:
-            self._attach_allure("Request Body", str(r.request.body))
-        self._attach_allure("Response Status", str(r.status_code))
-        self._attach_allure("Response Headers", str(dict(r.headers)))
-        self._attach_allure("Response Body", r.text)
+            body = r.request.body
+            attach_text("Request Body", body.decode("utf-8", "replace") if isinstance(body, bytes) else str(body))
+        attach_text("Response", f"{r.status_code}\n\n{dict(r.headers)}")
+        attach_text("Response Body", r.text)
 
         return ApiResponse(
             status_code=r.status_code,
-            json=payload if isinstance(payload, dict) else None,
+            json=payload if isinstance(payload, (dict, list)) else None,
             text=r.text,
             headers=dict(r.headers),
             url=r.request.url or "",
@@ -67,48 +77,19 @@ class NaruzhuApi:
     # ===== auth+request =====
 
     def request_email_verification(self, email: str, reason: str = "mobile_request") -> ApiResponse:
-        r = self.session.post(
-            self._url(Endpoints.REQUEST_EMAIL_VERIFICATION),
-            headers=self._headers(),
-            json={"email": email, "reason": reason},
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("POST", Endpoints.REQUEST_EMAIL_VERIFICATION, json={"email": email, "reason": reason})
 
     def check_email_otp(self, email: str, otp_code: str) -> ApiResponse:
-        r = self.session.post(
-            self._url(Endpoints.CHECK_EMAIL_OTP),
-            headers=self._headers(),
-            json={"email": email, "otp_code": otp_code},
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("POST", Endpoints.CHECK_EMAIL_OTP, json={"email": email, "otp_code": otp_code})
 
     def create_quick_login(self) -> ApiResponse:
-        r = self.session.post(
-            self._url(Endpoints.CREATE_QUICK_LOGIN),
-            headers=self._headers(),
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("POST", Endpoints.CREATE_QUICK_LOGIN)
 
     def check_quick_login(self, quick_login_code: str) -> ApiResponse:
-        r = self.session.post(
-            self._url(Endpoints.CHECK_QUICK_LOGIN),
-            headers=self._headers(),
-            json={"quick_login_code": quick_login_code},
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("POST", Endpoints.CHECK_QUICK_LOGIN, json={"quick_login_code": quick_login_code})
 
     def get_request(self, public_request_id: str) -> ApiResponse:
-        r = self.session.get(
-            self._url(Endpoints.GET_REQUEST),
-            headers=self._headers(),
-            params={"public_request_id": public_request_id},
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("GET", Endpoints.GET_REQUEST, params={"public_request_id": public_request_id})
 
     # ===== keys =====
 
@@ -116,42 +97,18 @@ class NaruzhuApi:
         params: Dict[str, Any] = {"public_request_id": public_request_id}
         if force_update_device is not None:
             params["force_update_device"] = str(force_update_device).lower()
-
-        r = self.session.get(
-            self._url(Endpoints.DOWNLOAD_AWG_KEY),
-            headers=self._headers(),
-            params=params,
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("GET", Endpoints.DOWNLOAD_AWG_KEY, params=params)
 
     def download_anonymous_key(self) -> ApiResponse:
-        r = self.session.get(
-            self._url(Endpoints.DOWNLOAD_ANONYMOUS_KEY),
-            headers=self._headers(),
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("GET", Endpoints.DOWNLOAD_ANONYMOUS_KEY)
 
     # ===== support =====
 
     def check_change_server(self, public_request_id: str) -> ApiResponse:
-        r = self.session.get(
-            self._url(Endpoints.CHECK_CHANGE_SERVER),
-            headers=self._headers(),
-            params={"public_request_id": public_request_id},
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("GET", Endpoints.CHECK_CHANGE_SERVER, params={"public_request_id": public_request_id})
 
     def change_server(self, public_request_id: str) -> ApiResponse:
-        r = self.session.post(
-            self._url(Endpoints.CHANGE_SERVER),
-            headers=self._headers(),
-            json={"public_request_id": public_request_id},
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("POST", Endpoints.CHANGE_SERVER, json={"public_request_id": public_request_id})
 
     def app_report(
         self,
@@ -168,36 +125,15 @@ class NaruzhuApi:
             "firebase_installation_id": firebase_installation_id,
             "additional_info": additional_info or {},
         }
-        r = self.session.post(
-            self._url(Endpoints.APP_REPORT),
-            headers=self._headers(),
-            json=payload,
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("POST", Endpoints.APP_REPORT, json=payload)
 
     # ===== utility =====
 
     def get_country(self) -> ApiResponse:
-        r = self.session.get(
-            self._url(Endpoints.GET_COUNTRY),
-            headers=self._headers(),
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("GET", Endpoints.GET_COUNTRY)
 
     def server_datetime(self) -> ApiResponse:
-        r = self.session.get(
-            self._url(Endpoints.SERVER_DATETIME),
-            headers=self._headers(),
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("GET", Endpoints.SERVER_DATETIME)
 
     def countries(self) -> ApiResponse:
-        r = self.session.get(
-            self._url(Endpoints.COUNTRIES),
-            headers=self._headers(),
-            timeout=30,
-        )
-        return self._wrap(r)
+        return self._request("GET", Endpoints.COUNTRIES)
