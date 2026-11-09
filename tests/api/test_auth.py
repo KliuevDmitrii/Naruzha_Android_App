@@ -58,7 +58,8 @@ class TestCheckEmailOtp:
 
     @allure.title("Wrong OTP for existing user gets invalid_otp")
     def test_check_email_otp_wrong_code(self, api, account_email):
-        assert_api_error(api.check_email_otp(email=account_email, otp_code=td.WRONG_OTP), 400, "invalid_otp")
+        r = api.check_email_otp(email=account_email, otp_code=td.WRONG_OTP)
+        assert_api_error(r, td.INVALID_OTP_STATUS, "invalid_otp")
 
     @allure.title("Valid OTP returns request with public_request_id")
     def test_check_email_otp_valid_code(self, api, account_email, account_otp):

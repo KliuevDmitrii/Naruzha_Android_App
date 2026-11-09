@@ -53,14 +53,18 @@
        return self._all(q.ACTIVE_KEYS_BY_REQUEST_ID, request_id=request_id)
    ```
 2. Тест в `tests/db/` — фикстура `db`, маркер `db`; допустимые значения (статусы, типы) — в `testdata/db_data.py`.
-3. Связка API -> БД — в `tests/e2e/` с маркерами `e2e`, `api`, `db` (и `mutating`, если API меняет данные):
+3. Связка API -> БД — в `tests/e2e/` с маркерами `e2e`, `api`, `db` (и `mutating`, если API меняет данные).
+   Пользователь без почтового ящика: регистрация через API, OTP — из БД:
    ```python
-   def test_new_user_saved_in_db(api, db, faker):
-       email = faker.email()
-       assert_ok_data(api.request_email_verification(email=email))
-       user = db.user_by_email(email)
-       assert user is not None and user["email_is_verified"] is False
+   from tests.helpers.accounts import register_account
+
+   def test_something_for_new_user(api, db, faker):
+       account = register_account(api, db, email=faker.email())   # API -> users -> requests.comments.otp_code -> check-email-otp
+       row = db.request_by_public_id(account.public_request_id)
+       ...
    ```
+   Достаточно общего аккаунта на прогон — фикстуры `public_request_id` / `public_user_id` / `account_email`
+   (при пустом `test_data.local.json` аккаунт создаётся сам). OTP по email — `db.otp_by_email(email)`.
 4. Только `SELECT`, только bind-параметры (`:name`), без WHERE — с `:limit`. `client_private_key` не выводить.
 5. Прогон: `pytest -m db`, сквозные: `pytest -m e2e` (нужны `SSH_*`, `DB_*` в `config/.env`; база выбирается по `ENV`).
 

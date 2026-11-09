@@ -33,6 +33,9 @@ class TestKeys:
         api = NaruzhuApi(config, awg_version=version)
         r = api.download_awg_key(public_request_id, force_update_device=True)
 
+        if isinstance(r.json, dict) and (r.json.get("error") or {}).get("code") == td.NO_SERVER_ERROR_CODE:
+            pytest.skip(f"No available server for AWG {version} on this stand")
+
         with allure.step("Assert HTTP 200"):
             assert r.status_code == 200, f"\nURL: {r.url}\nBODY:\n{r.text[:500]}"
 

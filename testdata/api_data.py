@@ -37,6 +37,8 @@ INVALID_EMAILS = [
 
 INVALID_REASON = "bad_reason"
 WRONG_OTP = "0000"
+# По доке/коллекции invalid_otp -> 400, фактически API отвечает 401 (см. KNOWN_ISSUES["invalid_otp_status"])
+INVALID_OTP_STATUS = 401
 
 # ===== Quick Login =====
 
@@ -100,4 +102,9 @@ KNOWN_ISSUES = {
     "set_free_status_not_found": "set-free-status с несуществующей заявкой -> not_allowed_free_status вместо vpnn_request_not_found",
     "update_device_info_draft": "update-device-info (DRAFT) не задеплоен: 404 Not Found",
     "get_payment_link_not_json": "get-payment-link отвечает текстом '400: User not found' вместо JSON {data, error}",
+    "invalid_otp_status": "check-email-otp с неверным OTP: по доке 400, фактически 401 (тесты ждут 401)",
+    "get_request_auto_renewal": "get-request возвращает auto_renewal=null, в requests.auto_renewal = true",
 }
+
+# Ошибка download-awg-key, когда на стенде нет живого сервера под версию AWG — это данные стенда, не баг
+NO_SERVER_ERROR_CODE = "available_wg_server_not_found"

@@ -9,6 +9,7 @@ from utils.data_provider import DataProvider
 from app.api.client import NaruzhuApi
 from app.db.client import DbClient
 from app.db.repository import NaruzhuDb
+from tests.helpers.accounts import Account, register_account
 
 
 @pytest.fixture(scope="session")
@@ -43,33 +44,48 @@ def faker() -> Faker:
     return Faker()
 
 
-# ===== Тестовый аккаунт (testdata/test_data.local.json) =====
+# ===== Тестовый аккаунт =====
+# Источник 1: testdata/test_data.local.json (постоянный аккаунт).
+# Источник 2 (если в json пусто): registered_account — новый пользователь,
+# зарегистрированный через API с OTP из БД. Один на прогон; на ENV=prod не создаётся.
 
-def _account_value(data: DataProvider, key: str) -> str:
-    value = data.get(f"test_account.{key}")
-    if not value:
-        pytest.skip(f"test_account.{key} is not set in testdata/test_data.local.json")
-    return str(value)
+@pytest.fixture(scope="session")
+def registered_account(config: ConfigProvider, api: NaruzhuApi, db_engine) -> Account:
+    if config.env == "prod":
+        pytest.skip("registered_account is not created on ENV=prod")
+    with db_engine.connect() as conn:
+        return register_account(api, NaruzhuDb(conn), email=Faker().email())
+
+
+def _account_value(request: pytest.FixtureRequest, key: str, account_attr: str) -> str:
+    value = request.getfixturevalue("data").get(f"test_account.{key}")
+    if value:
+        return str(value)
+    try:
+        account = request.getfixturevalue("registered_account")
+    except Exception as e:  # нет SSH/DB в config/.env или туннель не поднялся (pytest.skip сюда не попадает)
+        pytest.skip(f"test_account.{key} is not set and registered_account is unavailable: {e}")
+    return getattr(account, account_attr)
 
 
 @pytest.fixture()
-def account_email(data: DataProvider) -> str:
-    return _account_value(data, "email")
+def account_email(request) -> str:
+    return _account_value(request, "email", "email")
 
 
 @pytest.fixture()
-def account_otp(data: DataProvider) -> str:
-    return _account_value(data, "otp")
+def account_otp(request) -> str:
+    return _account_value(request, "otp", "otp")
 
 
 @pytest.fixture()
-def public_request_id(data: DataProvider) -> str:
-    return _account_value(data, "public_request_id")
+def public_request_id(request) -> str:
+    return _account_value(request, "public_request_id", "public_request_id")
 
 
 @pytest.fixture()
-def public_user_id(data: DataProvider) -> str:
-    return _account_value(data, "public_user_id")
+def public_user_id(request) -> str:
+    return _account_value(request, "public_user_id", "public_user_id")
 
 
 @pytest.fixture(scope="session")

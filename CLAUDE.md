@@ -60,7 +60,7 @@ tests/
                         # public_request_id, public_user_id, account_email, account_otp, active_plan_id,
                         # db_engine, db_conn, db (NaruzhuDb), appium_driver, web_driver; скриншот в Allure при падении;
                         # mutating-тесты пропускаются на ENV=prod
-  helpers/              # переиспользуемые assert-хелперы (api_asserts.py)
+  helpers/              # assert-хелперы (api_asserts.py), регистрация аккаунта (accounts.py: register_account)
   api/  db/  ui/  web/  # тесты по слоям (в каждой папке __init__.py)
   e2e/                  # сквозные API -> DB (маркеры e2e + api + db)
 utils/                  # ConfigProvider, DataProvider, waits, attachments, logger
@@ -80,7 +80,11 @@ utils/                  # ConfigProvider, DataProvider, waits, attachments, logg
 
 - **Слои не смешиваются.** `app/` — клиенты и Page Objects без `assert`. Проверки — в `tests/` и `tests/helpers/`.
 - **API:** новый эндпоинт → константа в `Endpoints` → метод в `NaruzhuApi` через `self.request(...)` (таймаут — `API_TIMEOUT`, Allure-вложения — автоматически). Формат ответа client-api: `{"data": ..., "error": {"code", "localized_message"}}`. Успех — `assert_ok_data(r)`, ошибка — `assert_api_error(r, status, code)`.
-- **Тест-данные не хардкодить в тестах:** статичные — `testdata/api_data.py`, данные аккаунта — фикстуры из `test_data.local.json`, тариф — `active_plan_id`.
+- **Тест-данные не хардкодить в тестах:** статичные — `testdata/api_data.py` / `db_data.py`, тариф — `active_plan_id`.
+- **Аккаунт:** фикстуры `public_request_id`, `public_user_id`, `account_email`, `account_otp` берут значения из
+  `test_data.local.json`, а если там пусто — из `registered_account`: новый пользователь на прогон,
+  регистрация через API + OTP из БД (`requests.comments.otp_code` или `fixed_otp`). Нужен доступ к БД; на prod не создаётся.
+  Свой свежий пользователь в тесте — `register_account(api, db, email=faker.email())`.
 - **`@pytest.mark.mutating`** — на каждом тесте, который при успехе меняет данные стенда (ключи, биллинг, письма, отчёты). Известные баги — `xfail(strict=False)` с причиной из `KNOWN_ISSUES`.
 - Позитивные тесты для `make-refund`, `set-free-status`, `change-server`, `gift-card-activation` не пишем без явного запроса — они необратимо меняют аккаунт.
 - **SQL:** только чтение (`SELECT`). Запросы — в `app/db/queries.py` через `sqlalchemy.text()` с bind-параметрами, никакой конкатенации строк; выборки без WHERE — с `:limit`. В тестах — фикстура `db` (`NaruzhuDb`), новый запрос = константа в `queries.py` + метод в `NaruzhuDb`. Транзакция откатывается после теста.

@@ -15,7 +15,17 @@ REQUEST_STATUSES = [
     "Success - Paid Keys Email Sent",
 ]
 
+# Статус заявки сразу после request-email-verification нового пользователя
+NEW_REQUEST_STATUS = "Free Trial"
+
+# requests.status (БД) -> simplified_status (API get-request / check-email-otp).
+# Неизвестный статус -> e2e-сравнение пропускается; дополняйте по мере встречи.
+SIMPLIFIED_STATUS = {
+    "Free Trial": "trial",
+}
+
 # amnesia_keys.status / amnesia_keys.type
+KEY_STATUS_ACTIVE = "active"
 KEY_STATUSES = ["active", "blocked", "blocked forever"]
 KEY_TYPES = ["R", "S", "X"]
 

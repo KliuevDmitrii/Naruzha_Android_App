@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import TextClause
@@ -61,6 +62,32 @@ class NaruzhuDb:
 
     def requests_by_user_id(self, user_id: int) -> List[Row]:
         return self._all(q.REQUESTS_BY_USER_ID, user_id=user_id)
+
+    def latest_request_by_email(self, email: str) -> Optional[Row]:
+        user = self.user_by_email(email)
+        if user is None:
+            return None
+        requests = self.requests_by_user_id(user["id"])
+        return requests[0] if requests else None
+
+    @staticmethod
+    def otp_from_request(request: Row) -> Optional[str]:
+        """
+        OTP заявки: fixed_otp, если задан, иначе comments.otp_code.
+        comments — JSON-строка, которую пишет request-email-verification.
+        """
+        if request.get("fixed_otp"):
+            return str(request["fixed_otp"])
+        try:
+            comments = json.loads(request.get("comments") or "{}")
+        except ValueError:
+            return None
+        return comments.get("otp_code") if isinstance(comments, dict) else None
+
+    def otp_by_email(self, email: str) -> Optional[str]:
+        """Последний OTP пользователя по email (None — нет пользователя/заявки/кода)."""
+        request = self.latest_request_by_email(email)
+        return self.otp_from_request(request) if request else None
 
     # ===== amnesia_keys =====
 
