@@ -8,6 +8,14 @@ from utils.config_provider import ConfigProvider
 
 
 class DbClient:
+    """
+    Подключение к PostgreSQL стенда через SSH-туннель.
+
+    connect() поднимает туннель (sshtunnel) и возвращает SQLAlchemy Engine на локальный порт,
+    close() освобождает пул и закрывает туннель. Параметры — из ConfigProvider.db.
+    В тестах используется через фикстуры db_engine / db_conn.
+    """
+
     def __init__(self) -> None:
         cfg = ConfigProvider()
         db_cfg = cfg.db

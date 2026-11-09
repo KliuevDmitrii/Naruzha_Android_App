@@ -14,7 +14,8 @@ copy config\.example.env config\.env   # заполнить своими зна�
 ## Запуск
 
 ```bash
-pytest -m api                                  # API
+pytest -m api                                  # API (данные аккаунта: testdata/test_data.local.json)
+pytest -m "api and not mutating"               # API без изменения данных стенда
 pytest -m db                                   # SQL (нужны SSH_* и DB_*)
 pytest -m ui                                   # Android: Appium-сервер + устройство (UDID)
 pytest -m web                                  # Web: нужен WEB_BASE_URL

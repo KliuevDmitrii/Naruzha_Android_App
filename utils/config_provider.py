@@ -8,6 +8,14 @@ from dotenv import load_dotenv
 
 
 class ConfigProvider:
+    """
+    Единая точка доступа к настройкам проекта.
+
+    Загружает config/.example.env (дефолты), затем config/.env (локальные значения поверх)
+    и отдаёт готовые словари по слоям: api, db, appium, web.
+    Окружение API выбирается переменной ENV: test | test2 | prod.
+    """
+
     def __init__(self, project_root: Optional[Path] = None) -> None:
         self.project_root = project_root or Path(__file__).resolve().parents[1]
 

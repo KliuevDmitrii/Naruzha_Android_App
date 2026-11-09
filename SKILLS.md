@@ -10,22 +10,29 @@
 2. Добавить метод в `NaruzhuApi` (`app/api/client.py`) по образцу существующих:
    ```python
    def get_something(self, public_request_id: str) -> ApiResponse:
-       return self._request("GET", Endpoints.GET_SOMETHING, params={"public_request_id": public_request_id})
+       return self.request("GET", Endpoints.GET_SOMETHING, params={"public_request_id": public_request_id})
    ```
-3. Тест в `tests/api/test_<модуль>.py`:
+   Опциональные поля собирать через `_clean({...})` — `None` не уходит в запрос.
+3. Данные — в `testdata/api_data.py` (статичные значения, наборы для `parametrize`, ожидаемые `error.code`).
+   Данные аккаунта — фикстуры `public_request_id`, `public_user_id`, `account_email`, `account_otp`
+   (из `testdata/test_data.local.json`, если не заданы — тест пропускается).
+4. Тест в `tests/api/test_<группа>.py`:
    ```python
    @pytest.mark.api
    @allure.feature("API")
-   @allure.story("<сценарий>")
+   @allure.story("<группа из коллекции>")
    @allure.title("<кейс>")
-   def test_get_something_valid_id(api, data):
-       with allure.step("Send get-something"):
-           r = api.get_something(data.get("runtime.public_request_id"))
-       body = assert_ok_json(r, exact_keys=["data", "error"])
-       assert body["error"] is None, f"\nURL: {r.url}\nJSON:\n{body}"
+   def test_get_something_existing(api, public_request_id):
+       data = assert_ok_data(api.get_something(public_request_id))
+       assert data["field"], f"Unexpected data: {data}"
    ```
-4. Негативные кейсы: пустые/невалидные параметры, без заголовков, чужой `public_request_id` — проверять код ответа и `error`.
-5. Прогон: `pytest -m api -k get_something`.
+5. Негатив: `assert_api_error(r, 404, "vpnn_request_not_found")`. Кейс «несуществующая заявка» —
+   просто строка в `NOT_FOUND_CASES` (`testdata/api_data.py`), тест писать не нужно.
+   Без устройства — фикстура `api_without_device`, «новое устройство» — `api_new_device`,
+   произвольное тело — `api.request("POST", Endpoints.X, json={...})`.
+6. Ручка меняет данные (ключи, биллинг, письма) → `@pytest.mark.mutating` (на `ENV=prod` пропускается).
+7. Известный баг/расхождение с докой → текст в `KNOWN_ISSUES` и `@pytest.mark.xfail(reason=..., strict=False)`.
+8. Прогон: `pytest -m api -k get_something`; без меняющих данные: `pytest -m "api and not mutating"`.
 
 ## 2. Добавить SQL-проверку
 

@@ -1,7 +1,10 @@
 {
   "test_account": {
     "email": "",
-    "otp": ""
+    "otp": "",
+    "public_request_id": "",
+    "public_user_id": "",
+    "telegram_id": ""
   },
   "runtime": {
     "public_request_id": "",

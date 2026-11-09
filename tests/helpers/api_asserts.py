@@ -36,3 +36,34 @@ def assert_ok_json(
             )
 
     return body
+
+
+def assert_ok_data(r):
+    """Успешный ответ client-api: HTTP 200, {data, error=null}. Возвращает data."""
+    body = assert_ok_json(r, exact_keys=["data", "error"])
+
+    with allure.step("Assert error is null"):
+        assert body["error"] is None, f"\nURL: {r.url}\nJSON:\n{body}"
+
+    return body["data"]
+
+
+def assert_api_error(r, status: int, code: str):
+    """Ошибка client-api: HTTP status, data = null, error.code = code. Возвращает error."""
+    with allure.step(f"Assert HTTP {status}"):
+        assert r.status_code == status, (
+            f"\nURL: {r.url}\nExpected {status}, got {r.status_code}\nBODY:\n{r.text}"
+        )
+
+    with allure.step("Assert body is JSON {data, error}"):
+        assert isinstance(r.json, dict), f"\nURL: {r.url}\nExpected JSON, got:\n{r.text[:500]}"
+        assert set(r.json.keys()) == {"data", "error"}, f"\nURL: {r.url}\nKeys: {list(r.json.keys())}"
+        assert r.json["data"] is None, f"\nURL: {r.url}\ndata must be null:\n{r.text}"
+
+    error = r.json["error"]
+    with allure.step(f"Assert error.code == {code}"):
+        assert isinstance(error, dict), f"\nURL: {r.url}\nerror must be object:\n{r.text}"
+        assert error.get("code") == code, f"\nURL: {r.url}\nExpected code {code}, got:\n{r.text}"
+        assert error.get("localized_message"), f"\nURL: {r.url}\nEmpty localized_message:\n{r.text}"
+
+    return error

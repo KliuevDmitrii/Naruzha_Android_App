@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from faker import Faker
 
@@ -24,8 +26,70 @@ def api(config: ConfigProvider) -> NaruzhuApi:
 
 
 @pytest.fixture()
+def api_new_device(config: ConfigProvider) -> NaruzhuApi:
+    """Клиент с уникальным X-Device-Id — "новое устройство" (например, ТВ в quick login)."""
+    return NaruzhuApi(config, device_id=f"qa-autotest-{uuid.uuid4().hex[:12]}")
+
+
+@pytest.fixture()
+def api_without_device(config: ConfigProvider) -> NaruzhuApi:
+    """Клиент без заголовка X-Device-Id."""
+    return NaruzhuApi(config, device_id="")
+
+
+@pytest.fixture()
 def faker() -> Faker:
     return Faker()
+
+
+# ===== Тестовый аккаунт (testdata/test_data.local.json) =====
+
+def _account_value(data: DataProvider, key: str) -> str:
+    value = data.get(f"test_account.{key}")
+    if not value:
+        pytest.skip(f"test_account.{key} is not set in testdata/test_data.local.json")
+    return str(value)
+
+
+@pytest.fixture()
+def account_email(data: DataProvider) -> str:
+    return _account_value(data, "email")
+
+
+@pytest.fixture()
+def account_otp(data: DataProvider) -> str:
+    return _account_value(data, "otp")
+
+
+@pytest.fixture()
+def public_request_id(data: DataProvider) -> str:
+    return _account_value(data, "public_request_id")
+
+
+@pytest.fixture()
+def public_user_id(data: DataProvider) -> str:
+    return _account_value(data, "public_user_id")
+
+
+@pytest.fixture(scope="session")
+def active_plan_id(api: NaruzhuApi) -> int:
+    """id первого активного тарифа из get-plans — чтобы не хардкодить тарифы стенда."""
+    r = api.get_plans()
+    plans = (r.json or {}).get("data", {}).get("active_plans") if r.status_code == 200 else None
+    if not plans:
+        pytest.skip(f"get-plans returned no active plans: {r.status_code} {r.text[:200]}")
+    return plans[0]["id"]
+
+
+# ===== Защита prod от тестов, меняющих данные =====
+
+def pytest_collection_modifyitems(config, items):
+    if ConfigProvider().env != "prod":
+        return
+    skip_prod = pytest.mark.skip(reason="mutating test is not allowed on ENV=prod")
+    for item in items:
+        if item.get_closest_marker("mutating"):
+            item.add_marker(skip_prod)
 
 
 # ===== DB =====
