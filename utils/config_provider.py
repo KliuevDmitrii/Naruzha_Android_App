@@ -95,6 +95,12 @@ class ConfigProvider:
         }
 
     @property
+    def db_name(self) -> str:
+        """База под текущий ENV: DB_NAME_TEST / DB_NAME_TEST_2, иначе (и для prod) — DB_NAME."""
+        key = {"test": "DB_NAME_TEST", "test2": "DB_NAME_TEST_2"}.get(self.env)
+        return (self.get(key) if key else None) or self.get_required("DB_NAME")
+
+    @property
     def db(self) -> dict:
         return {
             "ssh_host": self.get_required("SSH_HOST"),
@@ -103,7 +109,7 @@ class ConfigProvider:
             "ssh_key_path": self.get_required("SSH_KEY_PATH"),
             "db_host": self.get_required("DB_HOST"),
             "db_port": int(self.get("DB_PORT", "5432")),
-            "db_name": self.get_required("DB_NAME"),
+            "db_name": self.db_name,
             "db_user": self.get_required("DB_USER"),
             "db_password": self.get_required("DB_PASSWORD"),
         }

@@ -36,23 +36,33 @@
 
 ## 2. Добавить SQL-проверку
 
-1. Запрос в `app/db/queries.py`:
-   ```python
-   from sqlalchemy import text
+Таблицы и связи — в docstring `app/db/queries.py`
+(`users.id <- requests.user_id`, `requests.db_id <- amnesia_keys/request_actions/request_events.request_id`,
+`wg_servers.id <- amnesia_keys.server_id`).
 
-   USER_BY_EMAIL = text("SELECT id, email, created_at FROM users WHERE email = :email")
-   ```
-2. Тест в `tests/db/test_<сущность>.py` с фикстурой `db_conn`:
+1. Готового метода в `NaruzhuDb` нет → запрос в `app/db/queries.py` на базе констант колонок:
    ```python
-   @pytest.mark.db
-   def test_user_created_after_verification(api, db_conn, faker):
-       email = faker.email()
-       api.request_email_verification(email=email)
-       row = db_conn.execute(queries.USER_BY_EMAIL, {"email": email}).mappings().first()
-       assert row is not None, f"User {email} not found in DB"
+   ACTIVE_KEYS_BY_REQUEST_ID = text(
+       f"SELECT {AMNESIA_KEYS_COLUMNS} FROM public.amnesia_keys "
+       "WHERE request_id = :request_id AND status = 'active'"
+   )
    ```
-3. Только `SELECT`, только bind-параметры (`:name`). Связка API → БД — типовой e2e-паттерн.
-4. Прогон: `pytest -m db` (нужны `SSH_*` и `DB_*` в `config/.env`).
+   и метод в `app/db/repository.py`:
+   ```python
+   def active_keys_by_request_id(self, request_id: int) -> List[Row]:
+       return self._all(q.ACTIVE_KEYS_BY_REQUEST_ID, request_id=request_id)
+   ```
+2. Тест в `tests/db/` — фикстура `db`, маркер `db`; допустимые значения (статусы, типы) — в `testdata/db_data.py`.
+3. Связка API -> БД — в `tests/e2e/` с маркерами `e2e`, `api`, `db` (и `mutating`, если API меняет данные):
+   ```python
+   def test_new_user_saved_in_db(api, db, faker):
+       email = faker.email()
+       assert_ok_data(api.request_email_verification(email=email))
+       user = db.user_by_email(email)
+       assert user is not None and user["email_is_verified"] is False
+   ```
+4. Только `SELECT`, только bind-параметры (`:name`), без WHERE — с `:limit`. `client_private_key` не выводить.
+5. Прогон: `pytest -m db`, сквозные: `pytest -m e2e` (нужны `SSH_*`, `DB_*` в `config/.env`; база выбирается по `ENV`).
 
 ## 3. Добавить Appium-экран (Page Object)
 

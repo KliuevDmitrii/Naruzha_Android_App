@@ -8,6 +8,7 @@ from utils.config_provider import ConfigProvider
 from utils.data_provider import DataProvider
 from app.api.client import NaruzhuApi
 from app.db.client import DbClient
+from app.db.repository import NaruzhuDb
 
 
 @pytest.fixture(scope="session")
@@ -113,6 +114,12 @@ def db_conn(db_engine):
     finally:
         tx.rollback()
         conn.close()
+
+
+@pytest.fixture(scope="function")
+def db(db_conn) -> NaruzhuDb:
+    """Чтение данных стенда (users, requests, amnesia_keys, ...) через NaruzhuDb."""
+    return NaruzhuDb(db_conn)
 
 
 # ===== Appium =====

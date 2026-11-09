@@ -38,7 +38,9 @@ app/                    # "что тестируем": клиенты и Page Ob
   api/client.py         # NaruzhuApi — по методу на ручку (через request()), возвращают ApiResponse
   api/endpoints.py      # пути эндпоинтов, группы = папки Insomnia-коллекции "VPNN client-api v1"
   db/client.py          # DbClient — SSH-туннель + SQLAlchemy engine
-  db/queries.py         # SQL-запросы (text()) для проверок
+  db/queries.py         # SQL-запросы (text()): users, requests, amnesia_keys, request_actions,
+                        # request_events, wg_servers + схема связей в docstring
+  db/repository.py      # NaruzhuDb — методы чтения (user_by_email, keys_by_public_request_id, ...) -> dict
   ui/driver.py          # create_android_driver(config) — UiAutomator2 из cfg.appium
   ui/locators/          # локаторы экранов Android
   ui/pages/             # Page Objects Android (наследуют BasePage)
@@ -50,15 +52,17 @@ config/
   .env                  # локальные значения и секреты (НЕ в git)
 testdata/
   api_data.py           # данные API-тестов: дефолты, parametrize-наборы, NOT_FOUND_CASES, KNOWN_ISSUES
+  db_data.py            # данные DB-тестов: допустимые статусы, типы ключей, версии AWG
   test_data.json        # шаблон данных тестового аккаунта (в git, пустой)
   test_data.local.json  # локальные/runtime-данные, сюда пишет DataProvider.save() (НЕ в git)
 tests/
   conftest.py           # фикстуры: config, data, api, api_new_device, api_without_device, faker,
                         # public_request_id, public_user_id, account_email, account_otp, active_plan_id,
-                        # db_engine, db_conn, appium_driver, web_driver; скриншот в Allure при падении;
+                        # db_engine, db_conn, db (NaruzhuDb), appium_driver, web_driver; скриншот в Allure при падении;
                         # mutating-тесты пропускаются на ENV=prod
   helpers/              # переиспользуемые assert-хелперы (api_asserts.py)
   api/  db/  ui/  web/  # тесты по слоям (в каждой папке __init__.py)
+  e2e/                  # сквозные API -> DB (маркеры e2e + api + db)
 utils/                  # ConfigProvider, DataProvider, waits, attachments, logger
 ```
 
@@ -67,6 +71,8 @@ utils/                  # ConfigProvider, DataProvider, waits, attachments, logg
 - `ConfigProvider` грузит `config/.example.env`, затем `config/.env` поверх.
 - `ENV=test | test2 | prod` выбирает `API_BASE_URL_TEST | API_BASE_URL_TEST_2 | API_BASE_URL`
   (test: `https://api.new.vpn-naruzhu.com`, test2: `https://api.new2.vpn-naruzhu.com`; адрес без `/client-api/v1`).
+- База БД тоже по `ENV`: `DB_NAME_TEST` (`naruzhu_test`) / `DB_NAME_TEST_2` (`naruzhu_test2`), для prod — `DB_NAME`.
+  На сервере рядом лежат базы других продуктов (`billing_test`, `auth_test`, ...) — по умолчанию не трогаем.
 - Значения из `config/.env` перекрывают `.example.env` — смена URL в шаблоне не действует, если ключ задан в `.env`.
 - Доступ к конфигу — только через `ConfigProvider` (`cfg.api`, `cfg.db`, `cfg.appium`), не через `os.getenv` в тестах.
 
@@ -77,7 +83,9 @@ utils/                  # ConfigProvider, DataProvider, waits, attachments, logg
 - **Тест-данные не хардкодить в тестах:** статичные — `testdata/api_data.py`, данные аккаунта — фикстуры из `test_data.local.json`, тариф — `active_plan_id`.
 - **`@pytest.mark.mutating`** — на каждом тесте, который при успехе меняет данные стенда (ключи, биллинг, письма, отчёты). Известные баги — `xfail(strict=False)` с причиной из `KNOWN_ISSUES`.
 - Позитивные тесты для `make-refund`, `set-free-status`, `change-server`, `gift-card-activation` не пишем без явного запроса — они необратимо меняют аккаунт.
-- **SQL:** только чтение (`SELECT`). Запросы — в `app/db/queries.py` через `sqlalchemy.text()` с bind-параметрами, никакой конкатенации строк. Фикстура `db_conn` откатывает транзакцию после теста.
+- **SQL:** только чтение (`SELECT`). Запросы — в `app/db/queries.py` через `sqlalchemy.text()` с bind-параметрами, никакой конкатенации строк; выборки без WHERE — с `:limit`. В тестах — фикстура `db` (`NaruzhuDb`), новый запрос = константа в `queries.py` + метод в `NaruzhuDb`. Транзакция откатывается после теста.
+- `amnesia_keys.client_private_key` — секрет: не печатать, не класть в Allure и в сообщения assert.
+- `amnesia_keys.request_id = NULL` — анонимный ключ (без заявки), это норма.
 - **Appium / Web:** драйвер — только через фикстуры `appium_driver` / `web_driver`; UDID, пакет, URL не хардкодить в тестах. Ожидания — явные (`utils/waits.py`, методы `BasePage`), без `time.sleep`.
 - **Маркеры обязательны:** каждый тест помечен `api` / `db` / `ui` / `web` / `e2e`; включён `--strict-markers`, новый маркер сначала добавить в `pytest.ini`.
 - Новая папка с тестами — сразу с `__init__.py`, иначе одинаковые имена файлов (`test_smoke.py`) конфликтуют.
